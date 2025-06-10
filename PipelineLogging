@@ -1,0 +1,75 @@
+-- =============================================
+-- Author:       
+-- ALTER Date:  
+-- Description: Insert Info into Logging Table
+-- =============================================
+CREATE PROCEDURE dbo.InsertIntoPipelineLogging
+(
+    @LogDatetime datetime2(6),
+    @LogType varchar(500) ,
+    @PipelineID varchar(500) ,
+    @PipelineName varchar(500),
+    @PipelineRunID varchar(500) ,
+    @TriggerTime datetime2(6),
+    @TriggerType varchar(500),
+    @PipelineSchema varchar(500),
+    @PipelineTable varchar(500),
+    @PipelineStatus varchar(500),
+    @PipelineRowsRead int,
+    @PipelineRowsWritten int,
+    @PipelineRowsSkipped int,
+    @PipelineLogFilePath varchar(500),
+    @LogDescription varchar(8000)
+)
+AS
+BEGIN
+    -- SET NOCOUNT ON added to prevent extra result sets from
+    -- interfering with SELECT statements.
+    SET NOCOUNT ON
+
+    --Assign the last identifier value to a variable
+	--If the table doesn't contain any rows, assign zero to the variable
+	DECLARE @MaxID AS BIGINT;
+
+	IF EXISTS(SELECT 1 FROM [log].[PipelineLogging])
+		SET @MaxID = (SELECT MAX([ID]) FROM [log].[PipelineLogging]);
+	ELSE
+		SET @MaxID = 0;
+
+	--Insert Params into Logging
+	INSERT INTO [log].[PipelineLogging]
+           ([ID]
+           ,[LogDatetime]
+           ,[LogType]
+           ,[PipelineID]
+           ,[PipelineName]
+           ,[PipelineRunID]
+           ,[TriggerTime]
+           ,[TriggerType]
+           ,[PipelineSchema]
+           ,[PipelineTable]
+           ,[PipelineStatus]
+           ,[PipelineRowsRead]
+           ,[PipelineRowsWritten]
+           ,[PipelineRowsSkipped]
+           ,[PipelineLogFilePath]
+           ,[LogDescription])
+     VALUES
+           (@MaxID + 1
+           ,@LogDatetime
+           ,@LogType
+           ,@PipelineID
+           ,@PipelineName
+           ,@PipelineRunID
+           ,@TriggerTime
+           ,@TriggerType
+           ,@PipelineSchema
+           ,@PipelineTable
+           ,@PipelineStatus
+           ,@PipelineRowsRead
+           ,@PipelineRowsWritten
+           ,@PipelineRowsSkipped
+           ,@PipelineLogFilePath
+           ,@LogDescription);
+
+END
