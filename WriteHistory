@@ -1,0 +1,31 @@
+-- =================================================================================================
+-- Author:       
+-- ALTER Date:   
+-- Description: This procedures historizes changed rows for product_mapping
+--				Latest rows can be identified by empty valid_to column or is_current=1
+-- =================================================================================================
+CREATE PROCEDURE [dbo].[UpdateProductMappingHistory]
+/***************************************************************************************************
+SUMMARY OF CHANGES
+Date(yyyy-mm-dd)    Author              Comments
+------------------- ------------------- ------------------------------------------------------------
+
+***************************************************************************************************/
+AS
+BEGIN
+-- get ids from differences and update with valid_to and is_current=0
+ update rep.product_mapping_history set is_current=0
+ where is_current=1 and product_id in (
+	 select clh.product_id
+	 from rep.product_mapping_latest_history clh
+	 join rep.product_mapping_history ch on clh.product_id=ch.product_id and ch.is_current=1
+	 where clh.row_hash <> ch.row_hash
+ )
+
+ -- insert updated and new rows
+ insert into rep.product_mapping_history
+ select clh.*
+ from rep.product_mapping_latest_history clh
+ left join rep.product_mapping_history ch on clh.product_id=ch.product_id and ch.is_current=1
+ where clh.row_hash <> ch.row_hash or ch.row_hash is null
+END
