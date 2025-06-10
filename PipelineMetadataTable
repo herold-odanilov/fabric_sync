@@ -1,0 +1,16 @@
+CREATE TABLE [se_warehouse_prod].[meta].[PipelineMetadata]
+(
+	[ID] [bigint] NOT NULL,
+	[SourceServer] [varchar](100) NOT NULL,
+	[SourceDB] [varchar](100) NOT NULL,
+	[SourceTable] [varchar](100) NOT NULL,
+	[TargetSchema] [varchar](100) NOT NULL,
+	[TargetTable] [varchar](100) NOT NULL,
+	[LoadType] [varchar](100) NOT NULL,
+	[LoadColumn] [varchar](100) NULL,
+	[KeyColumn] [varchar](100) NULL,
+	[Active] [bit] NOT NULL,
+	[WriteEvent] [bit] NULL,
+	[Entity] [varchar](100) NULL
+)
+GO
