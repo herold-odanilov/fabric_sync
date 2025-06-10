@@ -1,0 +1,45 @@
+-- =================================================================================================
+-- Author:       
+-- ALTER Date:   
+-- Description: Drop Source and insert to Target table
+-- =================================================================================================
+CREATE PROCEDURE [dbo].[DropInsertToTable]
+(
+    @sourceSchema varchar(500),
+    @sourceTable varchar(500),
+	@targetSchema varchar(500),
+    @targetTable varchar(500)
+)
+/***************************************************************************************************
+SUMMARY OF CHANGES
+Date(yyyy-mm-dd)    Author              Comments
+------------------- ------------------- ------------------------------------------------------------
+
+***************************************************************************************************/
+AS
+BEGIN
+    SET NOCOUNT ON
+
+	-- VARIABLES
+	DECLARE  @Sql    VARCHAR(1000);
+
+    -- Check Target Schema
+    IF NOT EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = @targetSchema)
+        BEGIN
+            SET @Sql = N'CREATE SCHEMA ' + @targetSchema
+            EXEC(@Sql)
+        END
+
+    -- DELETE & INSERT new data or CREATE TABLE with data
+    IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = @targetSchema AND TABLE_NAME = @targetTable)
+		BEGIN
+			SET @Sql = N'DROP TABLE ' + @targetSchema + '.' + @targetTable
+			EXEC(@Sql)
+		END
+	
+	BEGIN
+		SET @Sql = N'CREATE TABLE ' + @targetSchema + '.' + @targetTable + ' AS (SELECT * FROM ' + @sourceSchema + '.' + @sourceTable + ')'
+		EXEC(@Sql)
+	END
+
+END
