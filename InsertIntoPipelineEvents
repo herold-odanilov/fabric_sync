@@ -1,0 +1,29 @@
+-- =============================================
+-- Author:       
+-- ALTER Date:   
+-- Description: Insert Events to Table
+-- =============================================
+CREATE PROC [dbo].[InsertIntoPipelineEvents]
+    @sourceSchema varchar(500),
+    @sourceTable varchar(500),
+	@targetSchema varchar(500),
+	@targetTable varchar(500),
+	@keyColumn varchar(500),
+	@loadColumn varchar(500),
+    @entity varchar(500) NULL
+AS
+BEGIN
+    SET NOCOUNT ON
+    -- VARIABLES
+	DECLARE  @Sql    VARCHAR(1000);
+
+    BEGIN
+    SET @Sql = N'INSERT INTO event.PipelineEvents ' +
+            'SELECT HASHBYTES(''MD5'',CONCAT(' + @keyColumn + ',' + @loadColumn + ')) as ID, CONVERT(DATETIME,GETDATE() AT TIME ZONE ''UTC'' AT TIME ZONE ''Central European Standard Time'') as EventCreated, ' +
+			@keyColumn + ' as EventInternalID, ' + @loadColumn + ' as EventInternalDatetime, ''' +
+            @targetSchema + ''' as EventSchema, ''' + @targetTable + ''' as EventTable, ''' + COALESCE(@entity, '') + ''' as Entity' +
+            ' FROM ' + @sourceSchema + '.' + @sourceTable + 
+			' WHERE ' + @loadColumn + ' IS NOT NULL'
+	EXEC(@Sql)
+    END
+END
