@@ -1,0 +1,451 @@
+{
+    "name": "DPL_STARTCOPY_oneCRM_WH_PROD_lookupMeta",
+    "objectId": "e829567f-7a67-4940-bd19-f2bb6521ff0f",
+    "properties": {
+        "activities": [
+            {
+                "name": "Lookup Meta-Tables",
+                "description": ".",
+                "type": "Lookup",
+                "dependsOn": [
+                    {
+                        "activity": "Pipeline Start Logging",
+                        "dependencyConditions": [
+                            "Completed"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 4,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "typeProperties": {
+                    "source": {
+                        "type": "DataWarehouseSource",
+                        "sqlReaderQuery": "SELECT [SourceDB]\n      ,[SourceTable]\n      ,[TargetSchema]\n      ,[TargetTable]\n      ,[LoadType]\n      ,[LoadColumn]\n      ,[KeyColumn]\n      ,[WriteEvent]\n      ,[Entity]\n  FROM [meta].[PipelineMetadata]\n  WHERE Active=1\n",
+                        "queryTimeout": "02:00:00",
+                        "partitionOption": "None"
+                    },
+                    "firstRowOnly": false,
+                    "datasetSettings": {
+                        "annotations": [],
+                        "linkedService": {
+                            "name": "se_warehouse_prod",
+                            "properties": {
+                                "annotations": [],
+                                "type": "DataWarehouse",
+                                "typeProperties": {
+                                    "endpoint": "q4pcbm2dlsnehd5d5kytu5ynji-qucw46q2kgwe7k55rqsmuhazue.datawarehouse.fabric.microsoft.com",
+                                    "artifactId": "522e7171-e112-487f-9a83-0913b3f8b2c4",
+                                    "workspaceId": "7a6e0585-511a-4fac-abbd-8c24ca1c19a1"
+                                }
+                            }
+                        },
+                        "type": "DataWarehouseTable",
+                        "schema": []
+                    }
+                }
+            },
+            {
+                "name": "ForEach on Tables",
+                "type": "ForEach",
+                "dependsOn": [
+                    {
+                        "activity": "Lookup Meta-Tables",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "typeProperties": {
+                    "items": {
+                        "value": "@activity('Lookup Meta-Tables').output.value",
+                        "type": "Expression"
+                    },
+                    "activities": [
+                        {
+                            "name": "Lookup Last Load",
+                            "type": "Lookup",
+                            "dependsOn": [],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "typeProperties": {
+                                "source": {
+                                    "type": "DataWarehouseSource",
+                                    "sqlReaderQuery": {
+                                        "value": "IF  EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '@{item().TargetSchema}' AND TABLE_NAME = '@{item().TargetTable}' AND COLUMN_NAME = '@{item().LoadColumn}')\nEXEC(@{concat('''SELECT max(',item().LoadColumn,') as LastUpdate FROM ',item().TargetSchema,'.',item().TargetTable,'''')})\nELSE\nSELECT null as LastUpdate",
+                                        "type": "Expression"
+                                    },
+                                    "queryTimeout": "02:00:00",
+                                    "partitionOption": "None"
+                                },
+                                "datasetSettings": {
+                                    "annotations": [],
+                                    "linkedService": {
+                                        "name": "se_warehouse_prod",
+                                        "properties": {
+                                            "annotations": [],
+                                            "type": "DataWarehouse",
+                                            "typeProperties": {
+                                                "endpoint": "q4pcbm2dlsnehd5d5kytu5ynji-qucw46q2kgwe7k55rqsmuhazue.datawarehouse.fabric.microsoft.com",
+                                                "artifactId": "522e7171-e112-487f-9a83-0913b3f8b2c4",
+                                                "workspaceId": "7a6e0585-511a-4fac-abbd-8c24ca1c19a1"
+                                            }
+                                        }
+                                    },
+                                    "type": "DataWarehouseTable",
+                                    "schema": []
+                                }
+                            }
+                        },
+                        {
+                            "name": "If rowCount greater 0 or FULL Load",
+                            "type": "IfCondition",
+                            "dependsOn": [
+                                {
+                                    "activity": "Lookup Count of new rows",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "typeProperties": {
+                                "expression": {
+                                    "value": "@or(greater(activity('Lookup Count of new rows').output.firstRow.rowCount, 0), equals(item().LoadType, 'Full'))",
+                                    "type": "Expression"
+                                },
+                                "ifFalseActivities": [],
+                                "ifTrueActivities": [
+                                    {
+                                        "name": "Invoke single copy pipeline",
+                                        "type": "ExecutePipeline",
+                                        "dependsOn": [],
+                                        "policy": {
+                                            "secureInput": false
+                                        },
+                                        "typeProperties": {
+                                            "pipeline": {
+                                                "referenceName": "51d6e28c-917a-416f-835c-9bdb572b8857",
+                                                "type": "PipelineReference"
+                                            },
+                                            "waitOnCompletion": true,
+                                            "parameters": {
+                                                "SourceDB": {
+                                                    "value": "@item().SourceDB",
+                                                    "type": "Expression"
+                                                },
+                                                "SourceTable": {
+                                                    "value": "@item().SourceTable",
+                                                    "type": "Expression"
+                                                },
+                                                "TargetSchema": {
+                                                    "value": "@item().TargetSchema",
+                                                    "type": "Expression"
+                                                },
+                                                "TargetTable": {
+                                                    "value": "@item().TargetTable",
+                                                    "type": "Expression"
+                                                },
+                                                "LoadType": {
+                                                    "value": "@item().LoadType",
+                                                    "type": "Expression"
+                                                },
+                                                "LoadColumn": {
+                                                    "value": "@item().LoadColumn",
+                                                    "type": "Expression"
+                                                },
+                                                "KeyColumn": {
+                                                    "value": "@item().KeyColumn",
+                                                    "type": "Expression"
+                                                },
+                                                "WriteEvent": {
+                                                    "value": "@item().WriteEvent",
+                                                    "type": "Expression"
+                                                },
+                                                "Entity": {
+                                                    "value": "@item().Entity",
+                                                    "type": "Expression"
+                                                },
+                                                "LastUpdate": {
+                                                    "value": "@activity('Lookup Last Load').output.firstRow.LastUpdate",
+                                                    "type": "Expression"
+                                                }
+                                            }
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "name": "Lookup Count of new rows",
+                            "type": "Lookup",
+                            "dependsOn": [
+                                {
+                                    "activity": "Lookup Last Load",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "typeProperties": {
+                                "source": {
+                                    "type": "MySqlSource",
+                                    "query": {
+                                        "value": "@if(not(equals(coalesce(activity('Lookup Last Load').output.firstRow.LastUpdate, ''),'')),\nconcat('SELECT count(*) as rowCount FROM ', item().SourceDB,'.',item().SourceTable,' WHERE ',item().LoadColumn,' > ''', activity('Lookup Last Load').output.firstRow.LastUpdate, ''''\n),\nconcat('SELECT count(*) as rowCount FROM ',item().SourceDB,'.',item().SourceTable)\n) ",
+                                        "type": "Expression"
+                                    }
+                                },
+                                "datasetSettings": {
+                                    "annotations": [],
+                                    "type": "MySqlTable",
+                                    "schema": [],
+                                    "externalReferences": {
+                                        "connection": "9d1c184f-c428-49d4-aa55-97a517ff05ef"
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "name": "Pipeline Start Logging",
+                "type": "SqlServerStoredProcedure",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 4,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "typeProperties": {
+                    "storedProcedureName": "[dbo].[InsertIntoPipelineLogging]",
+                    "storedProcedureParameters": {
+                        "LogDatetime": {
+                            "value": {
+                                "value": "@convertTimeZone(utcNow(), 'UTC', 'W. Europe Standard Time')",
+                                "type": "Expression"
+                            },
+                            "type": "DateTime"
+                        },
+                        "LogDescription": {
+                            "value": "Pipeline started",
+                            "type": "String"
+                        },
+                        "LogType": {
+                            "value": "Pipeline",
+                            "type": "String"
+                        },
+                        "PipelineID": {
+                            "value": {
+                                "value": "@pipeline().Pipeline",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "PipelineLogFilePath": {
+                            "value": null,
+                            "type": "String"
+                        },
+                        "PipelineName": {
+                            "value": {
+                                "value": "@pipeline().PipelineName",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "PipelineRowsRead": {
+                            "value": null,
+                            "type": "Int32"
+                        },
+                        "PipelineRowsSkipped": {
+                            "value": null,
+                            "type": "Int32"
+                        },
+                        "PipelineRowsWritten": {
+                            "value": null,
+                            "type": "Int32"
+                        },
+                        "PipelineRunID": {
+                            "value": {
+                                "value": "@pipeline().RunId",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "PipelineSchema": {
+                            "value": null,
+                            "type": "String"
+                        },
+                        "PipelineStatus": {
+                            "value": "Started",
+                            "type": "String"
+                        },
+                        "PipelineTable": {
+                            "value": null,
+                            "type": "String"
+                        },
+                        "TriggerTime": {
+                            "value": {
+                                "value": "@convertTimeZone(pipeline().TriggerTime, 'UTC', 'W. Europe Standard Time')",
+                                "type": "Expression"
+                            },
+                            "type": "DateTime"
+                        },
+                        "TriggerType": {
+                            "value": {
+                                "value": "@pipeline().TriggerType",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        }
+                    }
+                },
+                "linkedService": {
+                    "name": "se_warehouse_prod",
+                    "properties": {
+                        "annotations": [],
+                        "type": "DataWarehouse",
+                        "typeProperties": {
+                            "endpoint": "q4pcbm2dlsnehd5d5kytu5ynji-qucw46q2kgwe7k55rqsmuhazue.datawarehouse.fabric.microsoft.com",
+                            "artifactId": "522e7171-e112-487f-9a83-0913b3f8b2c4",
+                            "workspaceId": "7a6e0585-511a-4fac-abbd-8c24ca1c19a1"
+                        }
+                    }
+                }
+            },
+            {
+                "name": "Pipeline End Logging",
+                "type": "SqlServerStoredProcedure",
+                "dependsOn": [
+                    {
+                        "activity": "ForEach on Tables",
+                        "dependencyConditions": [
+                            "Completed"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 2,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "typeProperties": {
+                    "storedProcedureName": "[dbo].[InsertIntoPipelineLogging]",
+                    "storedProcedureParameters": {
+                        "LogDatetime": {
+                            "value": {
+                                "value": "@convertTimeZone(utcNow(), 'UTC', 'W. Europe Standard Time')",
+                                "type": "Expression"
+                            },
+                            "type": "DateTime"
+                        },
+                        "LogDescription": {
+                            "value": "Pipeline ended",
+                            "type": "String"
+                        },
+                        "LogType": {
+                            "value": "Pipeline",
+                            "type": "String"
+                        },
+                        "PipelineID": {
+                            "value": {
+                                "value": "@pipeline().Pipeline",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "PipelineLogFilePath": {
+                            "value": null,
+                            "type": "String"
+                        },
+                        "PipelineName": {
+                            "value": {
+                                "value": "@pipeline().PipelineName",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "PipelineRowsRead": {
+                            "value": null,
+                            "type": "Int32"
+                        },
+                        "PipelineRowsSkipped": {
+                            "value": null,
+                            "type": "Int32"
+                        },
+                        "PipelineRowsWritten": {
+                            "value": null,
+                            "type": "Int32"
+                        },
+                        "PipelineRunID": {
+                            "value": {
+                                "value": "@pipeline().RunId",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "PipelineSchema": {
+                            "value": null,
+                            "type": "String"
+                        },
+                        "PipelineStatus": {
+                            "value": "Ended",
+                            "type": "String"
+                        },
+                        "PipelineTable": {
+                            "value": null,
+                            "type": "String"
+                        },
+                        "TriggerTime": {
+                            "value": {
+                                "value": "@convertTimeZone(pipeline().TriggerTime, 'UTC', 'W. Europe Standard Time')",
+                                "type": "Expression"
+                            },
+                            "type": "DateTime"
+                        },
+                        "TriggerType": {
+                            "value": {
+                                "value": "@pipeline().TriggerType",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        }
+                    }
+                },
+                "linkedService": {
+                    "name": "se_warehouse_prod",
+                    "properties": {
+                        "annotations": [],
+                        "type": "DataWarehouse",
+                        "typeProperties": {
+                            "endpoint": "q4pcbm2dlsnehd5d5kytu5ynji-qucw46q2kgwe7k55rqsmuhazue.datawarehouse.fabric.microsoft.com",
+                            "artifactId": "522e7171-e112-487f-9a83-0913b3f8b2c4",
+                            "workspaceId": "7a6e0585-511a-4fac-abbd-8c24ca1c19a1"
+                        }
+                    }
+                }
+            }
+        ],
+        "lastModifiedByObjectId": "34b2db35-f0c0-4fae-8184-43d2f0939672",
+        "lastPublishTime": "2025-03-17T08:03:38Z"
+    }
+}
