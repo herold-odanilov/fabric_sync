@@ -1,0 +1,20 @@
+CREATE TABLE [se_warehouse_prod].[log].[PipelineLogging]
+(
+	[ID] [bigint] NOT NULL,
+	[LogDatetime] [datetime2](6) NOT NULL,
+	[LogType] [varchar](500) NULL,
+	[PipelineID] [varchar](500) NULL,
+	[PipelineName] [varchar](500) NULL,
+	[PipelineRunID] [varchar](500) NULL,
+	[TriggerTime] [datetime2](6) NULL,
+	[TriggerType] [varchar](500) NULL,
+	[PipelineSchema] [varchar](500) NULL,
+	[PipelineTable] [varchar](500) NULL,
+	[PipelineStatus] [varchar](500) NULL,
+	[PipelineRowsRead] [int] NULL,
+	[PipelineRowsWritten] [int] NULL,
+	[PipelineRowsSkipped] [int] NULL,
+	[PipelineLogFilePath] [varchar](500) NULL,
+	[LogDescription] [varchar](8000) NULL
+)
+GO
